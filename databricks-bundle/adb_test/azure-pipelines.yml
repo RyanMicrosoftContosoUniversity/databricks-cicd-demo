@@ -15,6 +15,16 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
+parameters:
+  - name: environment
+    displayName: Deployment Environment
+    type: string
+    default: 'DEV'
+    values:
+      - 'DEV'
+      - 'TRIAL'
+      - 'PROD'
+
 variables:
   - group: databricks-tokens
   - name: BUNDLE_PATH
@@ -47,7 +57,7 @@ stages:
   - stage: DeployDev
     displayName: 'Deploy to Dev'
     dependsOn: Validate
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    condition: eq(variables['targetEnvironment'], 'DEV')
     jobs:
       - job: DeployToDev
         displayName: 'Deploy to Dev Workspace'
@@ -72,7 +82,7 @@ stages:
   - stage: DeployTrial
     displayName: 'Deploy to Trial'
     dependsOn: Validate
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    condition: eq(variables['targetEnvironment'], 'TRIAL')
     jobs:
       - job: DeployToTrial
         displayName: 'Deploy to Trial Workspace'
@@ -99,7 +109,7 @@ stages:
     dependsOn: 
       - DeployDev
       - DeployTrial
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    condition: eq(variables['targetEnvironment'], 'PROD')
     jobs:
       - deployment: DeployToProd
         displayName: 'Deploy to Prod Workspace'
