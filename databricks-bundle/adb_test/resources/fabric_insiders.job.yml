@@ -1,0 +1,22 @@
+# Job for fabric-read-writeback-insiders notebook
+
+resources:
+  jobs:
+    fabric_insiders_job:
+      name: fabric_insiders_job
+
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: schema
+          default: ${var.schema}
+
+      tasks:
+        - task_key: run_notebook
+          notebook_task:
+            notebook_path: ../src/fabric-read-writeback-insiders.ipynb
+
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "4"

@@ -1,0 +1,128 @@
+# Azure DevOps Pipeline for Databricks Asset Bundle Deployment
+# Prerequisites:
+# 1. Create a Variable Group named 'databricks-tokens' in Pipelines → Library
+# 2. Add these secrets to the variable group:
+#    - DATABRICKS_TOKEN_DEV: PAT token for dev workspace
+#    - DATABRICKS_TOKEN_TRIAL: PAT token for trial workspace
+#    - DATABRICKS_TOKEN_PROD: PAT token for prod workspace (optional)
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: databricks-tokens
+  - name: BUNDLE_PATH
+    value: 'adb_test'
+
+stages:
+  - stage: Validate
+    displayName: 'Validate Bundle'
+    jobs:
+      - job: ValidateBundle
+        displayName: 'Validate Databricks Bundle'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.10'
+            displayName: 'Use Python 3.10'
+
+          - script: |
+              pip install databricks-cli
+            displayName: 'Install Databricks CLI'
+
+          - script: |
+              cd $(BUNDLE_PATH)
+              databricks bundle validate -t dev
+            displayName: 'Validate Bundle Configuration'
+            env:
+              DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_DEV)
+
+  - stage: DeployDev
+    displayName: 'Deploy to Dev'
+    dependsOn: Validate
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - job: DeployToDev
+        displayName: 'Deploy to Dev Workspace'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.10'
+            displayName: 'Use Python 3.10'
+
+          - script: |
+              pip install databricks-cli
+            displayName: 'Install Databricks CLI'
+
+          - script: |
+              cd $(BUNDLE_PATH)
+              databricks bundle deploy -t dev
+            displayName: 'Deploy Bundle to Dev'
+            env:
+              DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_DEV)
+
+  - stage: DeployTrial
+    displayName: 'Deploy to Trial'
+    dependsOn: Validate
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - job: DeployToTrial
+        displayName: 'Deploy to Trial Workspace'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.10'
+            displayName: 'Use Python 3.10'
+
+          - script: |
+              pip install databricks-cli
+            displayName: 'Install Databricks CLI'
+
+          - script: |
+              cd $(BUNDLE_PATH)
+              databricks bundle deploy -t trial
+            displayName: 'Deploy Bundle to Trial'
+            env:
+              DATABRICKS_HOST: https://adb-294236827790884.4.azuredatabricks.net
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_TRIAL)
+
+  - stage: DeployProd
+    displayName: 'Deploy to Production'
+    dependsOn: 
+      - DeployDev
+      - DeployTrial
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployToProd
+        displayName: 'Deploy to Prod Workspace'
+        environment: 'production'  # Requires approval in Azure DevOps
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: UsePythonVersion@0
+                  inputs:
+                    versionSpec: '3.10'
+                  displayName: 'Use Python 3.10'
+
+                - script: |
+                    pip install databricks-cli
+                  displayName: 'Install Databricks CLI'
+
+                - script: |
+                    cd $(BUNDLE_PATH)
+                    databricks bundle deploy -t prod
+                  displayName: 'Deploy Bundle to Prod'
+                  env:
+                    DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_PROD)

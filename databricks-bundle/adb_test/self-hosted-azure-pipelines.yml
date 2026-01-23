@@ -1,0 +1,153 @@
+# Azure DevOps Pipeline for Databricks Asset Bundle Deployment (Self-Hosted Agents)
+# Uses VNet-injected self-hosted agents for secure deployment to private workspaces
+#
+# Agent Mapping:
+#   dev    -> non_prod_vm
+#   shared -> non_prod_vm
+#   trial  -> prod_vm
+#   prod   -> prod_vm
+#
+# Prerequisites:
+# 1. Create a Variable Group named 'databricks-tokens' in Pipelines → Library
+# 2. Add these secrets to the variable group:
+#    - DATABRICKS_TOKEN_DEV: PAT token for dev workspace
+#    - DATABRICKS_TOKEN_SHARED: PAT token for shared workspace
+#    - DATABRICKS_TOKEN_TRIAL: PAT token for trial workspace
+#    - DATABRICKS_TOKEN_PROD: PAT token for prod workspace
+# 3. Register self-hosted agents:
+#    - non_prod_vm: Agent in non-prod VNet
+#    - prod_vm: Agent in prod VNet
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+variables:
+  - group: databricks-tokens
+  - name: BUNDLE_PATH
+    value: 'adb_test'
+
+stages:
+  # ============================================
+  # DEV DEPLOYMENT (non_prod_vm)
+  # ============================================
+  - stage: DeployDev
+    displayName: 'Deploy to Dev'
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
+    jobs:
+      - job: DeployToDev
+        displayName: 'Deploy to Dev Workspace'
+        pool:
+          name: 'non_prod_vm'
+        steps:
+          - script: |
+              cd $(BUNDLE_PATH)
+              databricks bundle validate -t dev
+            displayName: 'Validate Bundle'
+            env:
+              DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_DEV)
+
+          - script: |
+              cd $(BUNDLE_PATH)
+              databricks bundle deploy -t dev
+            displayName: 'Deploy Bundle to Dev'
+            env:
+              DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_DEV)
+
+  # ============================================
+  # SHARED DEPLOYMENT (non_prod_vm)
+  # ============================================
+  - stage: DeployShared
+    displayName: 'Deploy to Shared'
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
+    jobs:
+      - job: DeployToShared
+        displayName: 'Deploy to Shared Workspace'
+        pool:
+          name: 'non_prod_vm'
+        steps:
+          - script: |
+              cd $(BUNDLE_PATH)
+              databricks bundle validate -t shared
+            displayName: 'Validate Bundle'
+            env:
+              DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_SHARED)
+
+          - script: |
+              cd $(BUNDLE_PATH)
+              databricks bundle deploy -t shared
+            displayName: 'Deploy Bundle to Shared'
+            env:
+              DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_SHARED)
+
+  # ============================================
+  # TRIAL DEPLOYMENT (prod_vm)
+  # ============================================
+  - stage: DeployTrial
+    displayName: 'Deploy to Trial'
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
+    jobs:
+      - job: DeployToTrial
+        displayName: 'Deploy to Trial Workspace'
+        pool:
+          name: 'prod_vm'
+        steps:
+          - script: |
+              cd $(BUNDLE_PATH)
+              databricks bundle validate -t trial
+            displayName: 'Validate Bundle'
+            env:
+              DATABRICKS_HOST: https://adb-294236827790884.4.azuredatabricks.net
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_TRIAL)
+
+          - script: |
+              cd $(BUNDLE_PATH)
+              databricks bundle deploy -t trial
+            displayName: 'Deploy Bundle to Trial'
+            env:
+              DATABRICKS_HOST: https://adb-294236827790884.4.azuredatabricks.net
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_TRIAL)
+
+  # ============================================
+  # PROD DEPLOYMENT (prod_vm)
+  # ============================================
+  - stage: DeployProd
+    displayName: 'Deploy to Production'
+    dependsOn:
+      - DeployDev
+      - DeployShared
+      - DeployTrial
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployToProd
+        displayName: 'Deploy to Prod Workspace'
+        environment: 'production'  # Requires approval in Azure DevOps
+        pool:
+          name: 'prod_vm'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - script: |
+                    cd $(BUNDLE_PATH)
+                    databricks bundle validate -t prod
+                  displayName: 'Validate Bundle'
+                  env:
+                    DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_PROD)
+
+                - script: |
+                    cd $(BUNDLE_PATH)
+                    databricks bundle deploy -t prod
+                  displayName: 'Deploy Bundle to Prod'
+                  env:
+                    DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_PROD)
