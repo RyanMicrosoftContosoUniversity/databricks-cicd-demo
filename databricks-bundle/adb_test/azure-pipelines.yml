@@ -13,7 +13,7 @@ trigger:
       - develop
 
 pool:
-  vmImage: 'ubuntu-latest'
+  name: 'Default'
 
 parameters:
   - name: environment
@@ -36,10 +36,10 @@ stages:
       - job: ValidateBundle
         displayName: 'Validate Databricks Bundle'
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: '3.10'
-            displayName: 'Use Python 3.10'
+          - script: |
+              python --version
+              pip --version
+            displayName: 'Verify Python Installation'
 
           - script: |
               pip install databricks-cli
@@ -66,10 +66,10 @@ stages:
       - job: DeployToDev
         displayName: 'Deploy to Dev Workspace'
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: '3.10'
-            displayName: 'Use Python 3.10'
+          - script: |
+              python --version
+              pip --version
+            displayName: 'Verify Python Installation'
 
           - script: |
               pip install databricks-cli
@@ -91,10 +91,10 @@ stages:
       - job: DeployToTrial
         displayName: 'Deploy to Trial Workspace'
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: '3.10'
-            displayName: 'Use Python 3.10'
+          - script: |
+              python --version
+              pip --version
+            displayName: 'Verify Python Installation'
 
           - script: |
               pip install databricks-cli
@@ -124,10 +124,10 @@ stages:
               steps:
                 - checkout: self
 
-                - task: UsePythonVersion@0
-                  inputs:
-                    versionSpec: '3.10'
-                  displayName: 'Use Python 3.10'
+                - script: |
+                    python --version
+                    pip --version
+                  displayName: 'Verify Python Installation'
 
                 - script: |
                     pip install databricks-cli
