@@ -97,7 +97,7 @@ stages:
       - deployment: DeployToProd
         displayName: 'Deploy to Prod Workspace'
         environment: 'production'  # Requires approval in Azure DevOps
-      - job: DeployToProd
+      - job: Deploy
         steps:
           - script: |
               cd $(BUNDLE_PATH)
