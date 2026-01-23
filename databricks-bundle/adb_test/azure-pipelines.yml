@@ -65,15 +65,6 @@ stages:
         displayName: 'Deploy to Dev Workspace'
         steps:
           - script: |
-              python --version
-              pip --version
-            displayName: 'Verify Python Installation'
-
-          - script: |
-              pip install databricks-cli
-            displayName: 'Install Databricks CLI'
-
-          - script: |
               cd $(BUNDLE_PATH)
               databricks bundle deploy -t dev
             displayName: 'Deploy Bundle to Dev'
@@ -89,15 +80,6 @@ stages:
       - job: DeployToTrial
         displayName: 'Deploy to Trial Workspace'
         steps:
-          - script: |
-              python --version
-              pip --version
-            displayName: 'Verify Python Installation'
-
-          - script: |
-              pip install databricks-cli
-            displayName: 'Install Databricks CLI'
-
           - script: |
               cd $(BUNDLE_PATH)
               databricks bundle deploy -t trial
@@ -121,15 +103,6 @@ stages:
             deploy:
               steps:
                 - checkout: self
-
-                - script: |
-                    python --version
-                    pip --version
-                  displayName: 'Verify Python Installation'
-
-                - script: |
-                    pip install databricks-cli
-                  displayName: 'Install Databricks CLI'
 
                 - script: |
                     cd $(BUNDLE_PATH)
