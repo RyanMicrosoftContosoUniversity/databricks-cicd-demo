@@ -27,7 +27,7 @@ parameters:
 
 variables:
   - name: BUNDLE_PATH
-    value: 'adb_test'
+    value: 'databricks/adb_test'
 
 stages:
   - stage: Validate
