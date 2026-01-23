@@ -57,7 +57,7 @@ stages:
   - stage: DeployDev
     displayName: 'Deploy to Dev'
     dependsOn: Validate
-    condition: eq(variables['targetEnvironment'], 'DEV')
+    condition: eq(variables['environment'], 'DEV')
     jobs:
       - job: DeployToDev
         displayName: 'Deploy to Dev Workspace'
@@ -82,7 +82,7 @@ stages:
   - stage: DeployTrial
     displayName: 'Deploy to Trial'
     dependsOn: Validate
-    condition: eq(variables['targetEnvironment'], 'TRIAL')
+    condition: eq(variables['environment'], 'TRIAL')
     jobs:
       - job: DeployToTrial
         displayName: 'Deploy to Trial Workspace'
@@ -109,7 +109,7 @@ stages:
     dependsOn: 
       - DeployDev
       - DeployTrial
-    condition: eq(variables['targetEnvironment'], 'PROD')
+    condition: eq(variables['environment'], 'PROD')
     jobs:
       - deployment: DeployToProd
         displayName: 'Deploy to Prod Workspace'
