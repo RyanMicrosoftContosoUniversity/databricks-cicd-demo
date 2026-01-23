@@ -46,6 +46,11 @@ stages:
             displayName: 'Install Databricks CLI'
 
           - script: |
+              # print full working directory for debugging
+              pwd
+            displayName: 'Check Working Directory'
+
+          - script: |
               cd $(BUNDLE_PATH)
               databricks bundle validate -t dev
             displayName: 'Validate Bundle Configuration'
