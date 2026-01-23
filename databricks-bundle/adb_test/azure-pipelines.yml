@@ -26,7 +26,6 @@ parameters:
       - 'PROD'
 
 variables:
-  - group: databricks-tokens
   - name: BUNDLE_PATH
     value: 'adb_test'
 
