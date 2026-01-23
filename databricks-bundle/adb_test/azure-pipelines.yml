@@ -104,5 +104,5 @@ stages:
               databricks bundle deploy -t prod
             displayName: 'Deploy Bundle to Prod'
             env:
-            DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
-            DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_PROD)
+              DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_PROD)
