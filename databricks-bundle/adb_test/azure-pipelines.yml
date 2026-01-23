@@ -91,23 +91,18 @@ stages:
   - stage: DeployProd
     displayName: 'Deploy to Production'
     dependsOn: 
-      - DeployDev
-      - DeployTrial
+      - Validate
     condition: eq(variables['targetEnvironment'], 'PROD')
     jobs:
       - deployment: DeployToProd
         displayName: 'Deploy to Prod Workspace'
         environment: 'production'  # Requires approval in Azure DevOps
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - checkout: self
-
-                - script: |
-                    cd $(BUNDLE_PATH)
-                    databricks bundle deploy -t prod
-                  displayName: 'Deploy Bundle to Prod'
-                  env:
-                    DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
-                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_PROD)
+      - job: DeployToProd
+        steps:
+          - script: |
+              cd $(BUNDLE_PATH)
+              databricks bundle deploy -t prod
+            displayName: 'Deploy Bundle to Prod'
+            env:
+            DATABRICKS_HOST: https://adb-279469438045347.7.azuredatabricks.net
+            DATABRICKS_TOKEN: $(DATABRICKS_TOKEN_PROD)
