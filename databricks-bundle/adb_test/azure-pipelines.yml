@@ -28,6 +28,8 @@ parameters:
 variables:
   - name: BUNDLE_PATH
     value: 'databricks-bundle/adb_test'
+  - name: targetEnvironment
+    value: ${{ parameters.environment }}
 
 stages:
   - stage: Validate
@@ -57,7 +59,7 @@ stages:
   - stage: DeployDev
     displayName: 'Deploy to Dev'
     dependsOn: Validate
-    condition: eq(variables['environment'], 'DEV')
+    condition: eq(variables['targetEnvironment'], 'DEV')
     jobs:
       - job: DeployToDev
         displayName: 'Deploy to Dev Workspace'
@@ -82,7 +84,7 @@ stages:
   - stage: DeployTrial
     displayName: 'Deploy to Trial'
     dependsOn: Validate
-    condition: eq(variables['environment'], 'TRIAL')
+    condition: eq(variables['targetEnvironment'], 'TRIAL')
     jobs:
       - job: DeployToTrial
         displayName: 'Deploy to Trial Workspace'
@@ -109,7 +111,7 @@ stages:
     dependsOn: 
       - DeployDev
       - DeployTrial
-    condition: eq(variables['environment'], 'PROD')
+    condition: eq(variables['targetEnvironment'], 'PROD')
     jobs:
       - deployment: DeployToProd
         displayName: 'Deploy to Prod Workspace'
