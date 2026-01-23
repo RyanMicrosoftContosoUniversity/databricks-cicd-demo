@@ -46,8 +46,8 @@ stages:
             displayName: 'Install Databricks CLI'
 
           - script: |
-              # print full working directory for debugging
-              pwd
+              REM print full working directory for debugging
+              dir
             displayName: 'Check Working Directory'
 
           - script: |
