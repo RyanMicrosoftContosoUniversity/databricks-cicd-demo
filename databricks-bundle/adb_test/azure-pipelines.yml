@@ -42,10 +42,6 @@ stages:
             displayName: 'Verify Python Installation'
 
           - script: |
-              pip install databricks-cli
-            displayName: 'Install Databricks CLI'
-
-          - script: |
               REM print full working directory for debugging
               dir
             displayName: 'Check Working Directory'
