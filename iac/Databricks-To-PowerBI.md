@@ -97,9 +97,9 @@ Output:
 Note that this isn't the best long term approach because Microsoft adds servers and therefore IPs continuously.  Unfortunately, service tags cannot be used on ip access lists in Databricks.
 Therefore, from a security and connectivity the approach, the below pattern is recommended
 
-#### The most secure architecture for Power BI -> Databricks Connectivity
+## The most secure architecture for Power BI -> Databricks Connectivity
 
-Layer 1:  Network
+#### Layer 1:  Network
 Recommendation:  Private Link + VNet Data Gateway
 Rationale:  In the default implementation, Power BI connects to Databricks via the Databricks workspace public control plane URL at abd*-.azuredatabricks.net
 If this is made privately accessible, and give Power BI a private path to it, the data never leaves Microsoft's back end
@@ -144,7 +144,7 @@ Steps:
 Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subnet apply to Power BI's traffic.  Now your VNet can control Power BI, unlike the public architecture.
 
 
- Layer 2: Authentication — Service Principal with M2M OAuth (no PATs)
+ #### Layer 2: Authentication — Service Principal with M2M OAuth (no PATs)
 
   Right now you're likely using a Personal Access Token (PAT) or user-delegated OAuth. PATs are problematic:
 
@@ -178,7 +178,7 @@ Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subn
 
   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
-  Layer 3: Authorization — Unity Catalog with Least-Privilege Access
+  #### Layer 3: Authorization — Unity Catalog with Least-Privilege Access
 
   Don't give Power BI access to everything. Use Unity Catalog to restrict the service principal to only the data it needs.
 
@@ -203,7 +203,7 @@ Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subn
 
   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
-  Layer 4: Defense in Depth — Additional Controls
+  #### Layer 4: Defense in Depth — Additional Controls
 
   These are optional but recommended for maximum security:
 
