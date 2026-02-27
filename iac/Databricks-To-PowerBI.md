@@ -1,40 +1,50 @@
-# Login to Databricks CLI
-
+####  Login to Databricks CLI
+```
 databricks auth login --host https://<your-workspace-url>
 databricks auth login --host https://adb-7405616981398218.18.azuredatabricks.net/
+```
 
-
-# View Databricks ip access lists
+#### View Databricks ip access lists
+```
 databricks ip-access-lists list
+```
 
-# If for whatever reason it shows none, but you're sure you have IP access lists, it could be an issue with authentication, so try this
-# use the azure-cli for auth type for this session
+#### If for whatever reason it shows none, but you're sure you have IP access lists, it could be an issue with authentication, so try this
+#### use the azure-cli for auth type for this session
+```
 $env:DATABRICKS_AUTH_TYPE = "azure-cli"
-
-# create another environment variable for the session for the Databricks Host
+```
+#### create another environment variable for the session for the Databricks Host
+```
 $env:DATABRICKS_HOST = "https://adb-7405616981398218.18.azuredatabricks.net"
+```
 
-# Now view the ip access lists
+#### Now view the ip access lists
+
+```powershell
 databricks ip-access-lists list --output json
+```
 
->> Output:
-[
-  {
-    "address_count": 2,
-    "created_at": 1771870325695,
-    "created_by": 7010126945553087,
-    "enabled": true,
-    "ip_addresses": [
-      "172.177.78.102/32",
-      "24.218.99.135/32"
-    ],
-    "label": "Approved Networks",
-    "list_id": "b1532f72-77c5-44ab-aa9f-f338635e1aa3",
-    "list_type": "ALLOW",
-    "updated_at": 1771870325695,
-    "updated_by": 7010126945553087
-  }
-]
+> **Output:**
+> ```json
+> [
+>   {
+>     "address_count": 2,
+>     "created_at": 1771870325695,
+>     "created_by": 7010126945553087,
+>     "enabled": true,
+>     "ip_addresses": [
+>       "172.177.78.102/32",
+>       "24.218.99.135/32"
+>     ],
+>     "label": "Approved Networks",
+>     "list_id": "b1532f72-77c5-44ab-aa9f-f338635e1aa3",
+>     "list_type": "ALLOW",
+>     "updated_at": 1771870325695,
+>     "updated_by": 7010126945553087
+>   }
+> ]
+> ```
 
 For mine, the 172. is my NAT gateway IP, which is the IP range that controls all outbound traffic from my VNet cluster nodes to the internet (outbound)
 Without this, my Databricks cluster nodes couldn't talk back to the control plan via the secure cluster connectivity relay and clusters would fail to start
@@ -44,7 +54,7 @@ The 24. is my current public IP (so that I can connect to Databricks).  This sho
 These are both /32 because in each case, it is just one IP address
 
 
-# If you want to add the Power BI IPs to you IP access list
+#### If you want to add the Power BI IPs to you IP access list
 Run this:
 arguments:
 -IncludePowerBI:  This includees adding Power BI IPs to the access control list for Power BI to connect to Databricks over public internet
@@ -53,6 +63,7 @@ arguments:
 Example:
 .\iac\configure-ip-access-list.ps1 -Action Enable -IncludePowerBI -PowerBIRegion "EastUS" -AzureLocation "eastus"
 
+```
 Output:
 [
   {
@@ -81,12 +92,12 @@ Output:
     "updated_by": 7010126945553087
   }
 ]
-
+```
 
 Note that this isn't the best long term approach because Microsoft adds servers and therefore IPs continuously.  Unfortunately, service tags cannot be used on ip access lists in Databricks.
 Therefore, from a security and connectivity the approach, the below pattern is recommended
 
-# The most secure architecture for Power BI -> Databricks Connectivity
+#### The most secure architecture for Power BI -> Databricks Connectivity
 
 Layer 1:  Network
 Recommendation:  Private Link + VNet Data Gateway
@@ -196,37 +207,25 @@ Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subn
 
   These are optional but recommended for maximum security:
 
-  ┌─────────────────────────────────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-  │ Control                                 │ What it adds                                                                                                                                 │
-  ├─────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ IP Access Lists (what you already have) │ Even with Private Link, keep these as a backup — if someone accidentally re-enables public access, the IP list still blocks unauthorized IPs │
-  ├─────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ Entra ID Conditional Access             │ Apply policies to the service principal — e.g., only allow authentication from specific networks or require compliant devices                │
-  ├─────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ Diagnostic Logging                      │ Enable Databricks audit logs → send to Log Analytics. Track every query the service principal runs                                           │
-  ├─────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ Workspace-level firewall (storage)      │ If firewall is enabled on your workspace storage account, the VNet data gateway handles this automatically                                   │
-  └─────────────────────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+  | Control | What it adds |
+  |---|---|
+  | IP Access Lists (what you already have) | Even with Private Link, keep these as a backup — if someone accidentally re-enables public access, the IP list still blocks unauthorized IPs |
+  | Entra ID Conditional Access | Apply policies to the service principal — e.g., only allow authentication from specific networks or require compliant devices |
+  | Diagnostic Logging | Enable Databricks audit logs → send to Log Analytics. Track every query the service principal runs |
+  | Workspace-level firewall (storage) | If firewall is enabled on your workspace storage account, the VNet data gateway handles this automatically |
 
   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
   Summary: Current State vs. Most Secure State
 
-  ┌──────────────────┬────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┐
-  │ Aspect           │ Your Current Setup                     │ Most Secure                                                               │
-  ├──────────────────┼────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
-  │ Network path     │ Public internet → public control plane │ VNet Data Gateway → Private Endpoint → control plane (no public exposure) │
-  ├──────────────────┼────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
-  │ Workspace access │ Public + IP access lists               │ Private Link only (publicNetworkAccess: Disabled)                         │
-  ├──────────────────┼────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
-  │ Authentication   │ PAT or user OAuth                      │ Service Principal with M2M OAuth                                          │
-  ├──────────────────┼────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
-  │ Authorization    │ Full workspace access                  │ Unity Catalog — SELECT on specific tables only                            │
-  ├──────────────────┼────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
-  │ Compute          │ Shared cluster                         │ Dedicated SQL Warehouse                                                   │
-  ├──────────────────┼────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
-  │ Auditability     │ Limited                                │ Full audit logs + Entra ID sign-in logs                                   │
-  └──────────────────┴────────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┘
+  | Aspect | Your Current Setup | Most Secure |
+  |---|---|---|
+  | Network path | Public internet → public control plane | VNet Data Gateway → Private Endpoint → control plane (no public exposure) |
+  | Workspace access | Public + IP access lists | Private Link only (publicNetworkAccess: Disabled) |
+  | Authentication | PAT or user OAuth | Service Principal with M2M OAuth |
+  | Authorization | Full workspace access | Unity Catalog — SELECT on specific tables only |
+  | Compute | Shared cluster | Dedicated SQL Warehouse |
+  | Auditability | Limited | Full audit logs + Entra ID sign-in logs |
 
   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
@@ -243,3 +242,11 @@ Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subn
 
   Want me to start implementing any of these layers? The first three can be done right now without any infrastructure changes.
 
+
+
+  What's NOT in Bicep (requires manual setup per the doc)
+
+   - Layer 2: Service Principal registration (Entra ID) + Databricks OAuth secret
+   - Layer 1b: VNet Data Gateway registration (Power BI Admin Portal) — the subnet is provisioned, but the gateway itself is registered in the portal
+   - Layer 3: Unity Catalog grants + dedicated SQL Warehouse
+   - Layer 4: Entra ID Conditional Access policies
