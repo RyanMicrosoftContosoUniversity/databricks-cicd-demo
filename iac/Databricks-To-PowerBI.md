@@ -151,13 +151,7 @@ Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subn
 
 ![Layer 2 Authentication](../docs/databricks-powerbi-architecture-images/layer-2-authentication.png)
 
-
-  Right now you're likely using a Personal Access Token (PAT) or user-delegated OAuth. PATs are problematic:
-
-   - Tied to a user, not a service identity
-   - Hard to audit (who used it, when, from where?)
-   - No conditional access policies
-   - Can be copied and shared
+This layer recommends moving away from individual user entra accounts or PAT tokens and moving towards an SPN.  The rationale for this is if an individual user leaves an organization, this will introduce breaking changes to any integrations that are using their credentials.  A PAT token has similar behavior and is something where, if a user gets access to that PAT token, any action they take when logged in as that user will be traced back to the principal that created that PAT token.  This includes if a user who shouldn't have access to objects secured by the PAT token.  
 
   Step 2a: Create a Service Principal in Entra ID
 
@@ -172,7 +166,7 @@ Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subn
    3. Grant it CAN USE on your SQL Warehouse
    4. Grant it SELECT on only the specific tables Power BI needs (see Layer 3)
 
-  Step 2c: Configure Power BI to Use M2M OAuth
+  Step 2c: Configure Power BI to Use M2M OAuth (Machine To Machine OAuth)
 
   In Power BI Service → Manage connections and gateways → your VNet gateway connection:
 
@@ -196,9 +190,9 @@ Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subn
   Step 3a: Grant Minimal Permissions
 
    -- Only allow SELECT on the specific tables Power BI reports use
-   GRANT USE CATALOG ON CATALOG demo TO `svc-powerbi-databricks`;
-   GRANT USE SCHEMA ON SCHEMA demo.reporting TO `svc-powerbi-databricks`;
-   GRANT SELECT ON TABLE demo.reporting.sample_table TO `svc-powerbi-databricks`;
+   GRANT USE CATALOG ON CATALOG demo TO `service-principal-created-above`;
+   GRANT USE SCHEMA ON SCHEMA demo.reporting TO `service-principal-created-above`;
+   GRANT SELECT ON TABLE demo.reporting.sample_table TO `service-principal-created-above`;
 
    -- Do NOT grant broader permissions like:
    -- GRANT SELECT ON SCHEMA demo.* TO ...  (too broad)
@@ -242,22 +236,17 @@ Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subn
 
   Implementation Order
 
-  If you want to implement this, I'd suggest this sequence:
-
-   1. Service Principal + M2M OAuth (Layer 2) — can do today, no infra changes
-   2. Unity Catalog least-privilege grants (Layer 3) — can do today
-   3. Dedicated SQL Warehouse (Layer 3b) — can do today
-   4. Private Link on Databricks (Layer 1a) — Bicep changes needed
-   5. VNet Data Gateway (Layer 1b) — requires Premium capacity + subnet delegation
-   6. Disable public access — only after Private Link + VNet gateway are tested
-
-  Want me to start implementing any of these layers? The first three can be done right now without any infrastructure changes.
+   1. Service Principal + M2M OAuth (Layer 2) 
+   2. Unity Catalog least-privilege grants (Layer 3)
+   3. Dedicated SQL Warehouse (Layer 3b)
+   4. Private Link on Databricks (Layer 1a)
+   5. VNet Data Gateway (Layer 1b) 
+   6. Disable public access 
 
 
-
-  What's NOT in Bicep (requires manual setup per the doc)
+  What's NOT in Bicep (requires manual setup)
 
    - Layer 2: Service Principal registration (Entra ID) + Databricks OAuth secret
-   - Layer 1b: VNet Data Gateway registration (Power BI Admin Portal) — the subnet is provisioned, but the gateway itself is registered in the portal
+   - Layer 1b: VNet Data Gateway registration (Power BI Admin Portal)
    - Layer 3: Unity Catalog grants + dedicated SQL Warehouse
    - Layer 4: Entra ID Conditional Access policies
