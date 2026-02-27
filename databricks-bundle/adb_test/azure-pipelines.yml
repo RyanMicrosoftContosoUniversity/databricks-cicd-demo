@@ -105,6 +105,7 @@ stages:
                 
                 - script: |
                     cd $(BUNDLE_PATH)
+                    dir $(BUNDLE_PATH)/src
                     databricks bundle deploy -t prod --force-lock
                   displayName: 'Deploy Bundle to Prod'
                   env:
