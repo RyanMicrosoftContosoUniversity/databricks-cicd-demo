@@ -100,6 +100,9 @@ Therefore, from a security and connectivity the approach, the below pattern is r
 ## The most secure architecture for Power BI -> Databricks Connectivity
 
 #### Layer 1:  Network
+
+![Layer 1 Network](../docs/databricks-powerbi-architecture-images/layer-1-network.png)
+
 Recommendation:  Private Link + VNet Data Gateway
 Rationale:  In the default implementation, Power BI connects to Databricks via the Databricks workspace public control plane URL at abd*-.azuredatabricks.net
 If this is made privately accessible, and give Power BI a private path to it, the data never leaves Microsoft's back end
@@ -146,6 +149,9 @@ Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subn
 
  #### Layer 2: Authentication — Service Principal with M2M OAuth (no PATs)
 
+![Layer 2 Authentication](../docs/databricks-powerbi-architecture-images/layer-2-authentication.png)
+
+
   Right now you're likely using a Personal Access Token (PAT) or user-delegated OAuth. PATs are problematic:
 
    - Tied to a user, not a service identity
@@ -176,9 +182,14 @@ Key Benefit:  All traffic stays on the Azure backbone.  NSGs on the gateway subn
 
    Key benefit: No user tokens involved. The service principal is auditable, rotatable, and scoped to exactly what Power BI needs.
 
+   ##### Layers 1 and 2
+   ![Layers 1 and 2](../docs/databricks-powerbi-architecture-images/layers-1-and-2.png)
+
   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
   #### Layer 3: Authorization — Unity Catalog with Least-Privilege Access
+
+![Layer 3 Authorization](../docs/databricks-powerbi-architecture-images/layer-3-authorization.png)
 
   Don't give Power BI access to everything. Use Unity Catalog to restrict the service principal to only the data it needs.
 
