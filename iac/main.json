@@ -1,0 +1,1258 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.40.2.10011",
+      "templateHash": "15509185974738166043"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources"
+      }
+    },
+    "namePrefix": {
+      "type": "string",
+      "defaultValue": "dbw",
+      "metadata": {
+        "description": "Prefix applied to all resource names"
+      }
+    },
+    "vnetCidr": {
+      "type": "string",
+      "defaultValue": "10.0.0.0/16",
+      "metadata": {
+        "description": "VNet address space CIDR"
+      }
+    },
+    "hostSubnetCidr": {
+      "type": "string",
+      "defaultValue": "10.0.1.0/24",
+      "metadata": {
+        "description": "Host (public) subnet CIDR — at least /26"
+      }
+    },
+    "containerSubnetCidr": {
+      "type": "string",
+      "defaultValue": "10.0.2.0/24",
+      "metadata": {
+        "description": "Container (private) subnet CIDR — at least /26"
+      }
+    },
+    "privateEndpointSubnetCidr": {
+      "type": "string",
+      "defaultValue": "10.0.3.0/24",
+      "metadata": {
+        "description": "Private endpoint subnet CIDR"
+      }
+    },
+    "gatewaySubnetCidr": {
+      "type": "string",
+      "defaultValue": "10.0.4.0/24",
+      "metadata": {
+        "description": "VNet Data Gateway delegated subnet CIDR"
+      }
+    },
+    "mgmtSubnetCidr": {
+      "type": "string",
+      "defaultValue": "10.0.5.0/24",
+      "metadata": {
+        "description": "Management/jumpbox subnet CIDR"
+      }
+    },
+    "jumpboxAdminUsername": {
+      "type": "string",
+      "defaultValue": "rharrington",
+      "metadata": {
+        "description": "Admin username for the jumpbox VM"
+      }
+    },
+    "jumpboxAdminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Admin password for the jumpbox VM"
+      }
+    },
+    "managedResourceGroupName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Managed resource group name for Databricks-managed resources (leave empty for default)"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "nsg-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[parameters('namePrefix')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "13157474136099147820"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the NSGs"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Prefix for resource names"
+              }
+            }
+          },
+          "variables": {
+            "baselineRules": [
+              {
+                "name": "AllowInbound-VNet",
+                "properties": {
+                  "priority": 100,
+                  "direction": "Inbound",
+                  "access": "Allow",
+                  "protocol": "*",
+                  "sourcePortRange": "*",
+                  "destinationPortRange": "*",
+                  "sourceAddressPrefix": "VirtualNetwork",
+                  "destinationAddressPrefix": "VirtualNetwork"
+                }
+              },
+              {
+                "name": "AllowOutbound-Databricks",
+                "properties": {
+                  "priority": 100,
+                  "direction": "Outbound",
+                  "access": "Allow",
+                  "protocol": "Tcp",
+                  "sourcePortRange": "*",
+                  "destinationPortRanges": [
+                    "443",
+                    "3306",
+                    "8443-8451"
+                  ],
+                  "sourceAddressPrefix": "VirtualNetwork",
+                  "destinationAddressPrefix": "AzureDatabricks"
+                }
+              },
+              {
+                "name": "AllowOutbound-Sql",
+                "properties": {
+                  "priority": 110,
+                  "direction": "Outbound",
+                  "access": "Allow",
+                  "protocol": "Tcp",
+                  "sourcePortRange": "*",
+                  "destinationPortRange": "3306",
+                  "sourceAddressPrefix": "VirtualNetwork",
+                  "destinationAddressPrefix": "Sql"
+                }
+              },
+              {
+                "name": "AllowOutbound-Storage",
+                "properties": {
+                  "priority": 120,
+                  "direction": "Outbound",
+                  "access": "Allow",
+                  "protocol": "Tcp",
+                  "sourcePortRange": "*",
+                  "destinationPortRange": "443",
+                  "sourceAddressPrefix": "VirtualNetwork",
+                  "destinationAddressPrefix": "Storage"
+                }
+              },
+              {
+                "name": "AllowOutbound-VNet",
+                "properties": {
+                  "priority": 130,
+                  "direction": "Outbound",
+                  "access": "Allow",
+                  "protocol": "*",
+                  "sourcePortRange": "*",
+                  "destinationPortRange": "*",
+                  "sourceAddressPrefix": "VirtualNetwork",
+                  "destinationAddressPrefix": "VirtualNetwork"
+                }
+              },
+              {
+                "name": "AllowOutbound-EventHub",
+                "properties": {
+                  "priority": 140,
+                  "direction": "Outbound",
+                  "access": "Allow",
+                  "protocol": "Tcp",
+                  "sourcePortRange": "*",
+                  "destinationPortRange": "9093",
+                  "sourceAddressPrefix": "VirtualNetwork",
+                  "destinationAddressPrefix": "EventHub"
+                }
+              }
+            ]
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-host-nsg', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "securityRules": "[variables('baselineRules')]"
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-container-nsg', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "securityRules": "[variables('baselineRules')]"
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-gateway-nsg', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowOutbound-Databricks-PE",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Outbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "443",
+                      "sourceAddressPrefix": "VirtualNetwork",
+                      "destinationAddressPrefix": "VirtualNetwork"
+                    }
+                  },
+                  {
+                    "name": "DenyAllOutbound-Internet",
+                    "properties": {
+                      "priority": 4000,
+                      "direction": "Outbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "Internet"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "hostNsgId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', format('{0}-host-nsg', parameters('namePrefix')))]"
+            },
+            "containerNsgId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', format('{0}-container-nsg', parameters('namePrefix')))]"
+            },
+            "gatewayNsgId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', format('{0}-gateway-nsg', parameters('namePrefix')))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vnet-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[parameters('namePrefix')]"
+          },
+          "vnetCidr": {
+            "value": "[parameters('vnetCidr')]"
+          },
+          "hostSubnetCidr": {
+            "value": "[parameters('hostSubnetCidr')]"
+          },
+          "containerSubnetCidr": {
+            "value": "[parameters('containerSubnetCidr')]"
+          },
+          "privateEndpointSubnetCidr": {
+            "value": "[parameters('privateEndpointSubnetCidr')]"
+          },
+          "gatewaySubnetCidr": {
+            "value": "[parameters('gatewaySubnetCidr')]"
+          },
+          "mgmtSubnetCidr": {
+            "value": "[parameters('mgmtSubnetCidr')]"
+          },
+          "hostNsgId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'nsg-deployment'), '2025-04-01').outputs.hostNsgId.value]"
+          },
+          "containerNsgId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'nsg-deployment'), '2025-04-01').outputs.containerNsgId.value]"
+          },
+          "gatewayNsgId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'nsg-deployment'), '2025-04-01').outputs.gatewayNsgId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "12980535715848829008"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Prefix for resource names"
+              }
+            },
+            "vnetCidr": {
+              "type": "string",
+              "defaultValue": "10.0.0.0/16",
+              "metadata": {
+                "description": "VNet address space"
+              }
+            },
+            "hostSubnetCidr": {
+              "type": "string",
+              "defaultValue": "10.0.1.0/24",
+              "metadata": {
+                "description": "Host (public) subnet CIDR"
+              }
+            },
+            "containerSubnetCidr": {
+              "type": "string",
+              "defaultValue": "10.0.2.0/24",
+              "metadata": {
+                "description": "Container (private) subnet CIDR"
+              }
+            },
+            "privateEndpointSubnetCidr": {
+              "type": "string",
+              "defaultValue": "10.0.3.0/24",
+              "metadata": {
+                "description": "Private endpoint subnet CIDR"
+              }
+            },
+            "gatewaySubnetCidr": {
+              "type": "string",
+              "defaultValue": "10.0.4.0/24",
+              "metadata": {
+                "description": "VNet Data Gateway delegated subnet CIDR"
+              }
+            },
+            "mgmtSubnetCidr": {
+              "type": "string",
+              "defaultValue": "10.0.5.0/24",
+              "metadata": {
+                "description": "Management/jumpbox subnet CIDR"
+              }
+            },
+            "hostNsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the host subnet NSG"
+              }
+            },
+            "containerNsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the container subnet NSG"
+              }
+            },
+            "gatewayNsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the gateway subnet NSG"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-nat-pip', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "publicIPAddressVersion": "IPv4"
+              }
+            },
+            {
+              "type": "Microsoft.Network/natGateways",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-nat-gw', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "idleTimeoutInMinutes": 4,
+                "publicIpAddresses": [
+                  {
+                    "id": "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-nat-pip', parameters('namePrefix')))]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-nat-pip', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-vnet', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('vnetCidr')]"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('{0}-vnet', parameters('namePrefix')), format('{0}-host-subnet', parameters('namePrefix')))]",
+              "properties": {
+                "addressPrefix": "[parameters('hostSubnetCidr')]",
+                "networkSecurityGroup": {
+                  "id": "[parameters('hostNsgId')]"
+                },
+                "natGateway": {
+                  "id": "[resourceId('Microsoft.Network/natGateways', format('{0}-nat-gw', parameters('namePrefix')))]"
+                },
+                "delegations": [
+                  {
+                    "name": "databricks-host-delegation",
+                    "properties": {
+                      "serviceName": "Microsoft.Databricks/workspaces"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/natGateways', format('{0}-nat-gw', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('{0}-vnet', parameters('namePrefix')), format('{0}-container-subnet', parameters('namePrefix')))]",
+              "properties": {
+                "addressPrefix": "[parameters('containerSubnetCidr')]",
+                "networkSecurityGroup": {
+                  "id": "[parameters('containerNsgId')]"
+                },
+                "natGateway": {
+                  "id": "[resourceId('Microsoft.Network/natGateways', format('{0}-nat-gw', parameters('namePrefix')))]"
+                },
+                "delegations": [
+                  {
+                    "name": "databricks-container-delegation",
+                    "properties": {
+                      "serviceName": "Microsoft.Databricks/workspaces"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', format('{0}-vnet', parameters('namePrefix')), format('{0}-host-subnet', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/natGateways', format('{0}-nat-gw', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('{0}-vnet', parameters('namePrefix')), format('{0}-pe-subnet', parameters('namePrefix')))]",
+              "properties": {
+                "addressPrefix": "[parameters('privateEndpointSubnetCidr')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', format('{0}-vnet', parameters('namePrefix')), format('{0}-container-subnet', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('{0}-vnet', parameters('namePrefix')), format('{0}-gateway-subnet', parameters('namePrefix')))]",
+              "properties": {
+                "addressPrefix": "[parameters('gatewaySubnetCidr')]",
+                "networkSecurityGroup": {
+                  "id": "[parameters('gatewayNsgId')]"
+                },
+                "delegations": [
+                  {
+                    "name": "powerplatform-vnet-delegation",
+                    "properties": {
+                      "serviceName": "Microsoft.PowerPlatform/vnetaccesslinks"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', format('{0}-vnet', parameters('namePrefix')), format('{0}-pe-subnet', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('{0}-vnet', parameters('namePrefix')), format('{0}-mgmt-subnet', parameters('namePrefix')))]",
+              "properties": {
+                "addressPrefix": "[parameters('mgmtSubnetCidr')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', format('{0}-vnet', parameters('namePrefix')), format('{0}-gateway-subnet', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('namePrefix')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('namePrefix')))]"
+            },
+            "vnetName": {
+              "type": "string",
+              "value": "[format('{0}-vnet', parameters('namePrefix'))]"
+            },
+            "hostSubnetName": {
+              "type": "string",
+              "value": "[format('{0}-host-subnet', parameters('namePrefix'))]"
+            },
+            "containerSubnetName": {
+              "type": "string",
+              "value": "[format('{0}-container-subnet', parameters('namePrefix'))]"
+            },
+            "peSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', format('{0}-vnet', parameters('namePrefix')), format('{0}-pe-subnet', parameters('namePrefix')))]"
+            },
+            "gatewaySubnetName": {
+              "type": "string",
+              "value": "[format('{0}-gateway-subnet', parameters('namePrefix'))]"
+            },
+            "mgmtSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', format('{0}-vnet', parameters('namePrefix')), format('{0}-mgmt-subnet', parameters('namePrefix')))]"
+            },
+            "natGatewayPublicIp": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', format('{0}-nat-pip', parameters('namePrefix'))), '2024-05-01').ipAddress]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'nsg-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "databricks-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[parameters('namePrefix')]"
+          },
+          "vnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.vnetId.value]"
+          },
+          "hostSubnetName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.hostSubnetName.value]"
+          },
+          "containerSubnetName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.containerSubnetName.value]"
+          },
+          "managedResourceGroupName": {
+            "value": "[parameters('managedResourceGroupName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "7361041169721351593"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Prefix for resource names"
+              }
+            },
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the VNet"
+              }
+            },
+            "hostSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the host (public) subnet"
+              }
+            },
+            "containerSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the container (private) subnet"
+              }
+            },
+            "managedResourceGroupName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Managed resource group name for Databricks-managed resources"
+              }
+            }
+          },
+          "variables": {
+            "managedRgName": "[if(empty(parameters('managedResourceGroupName')), format('{0}-databricks-managed-rg', parameters('namePrefix')), parameters('managedResourceGroupName'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Databricks/workspaces",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-databricks-ws', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "premium"
+              },
+              "properties": {
+                "managedResourceGroupId": "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('managedRgName'))]",
+                "publicNetworkAccess": "Disabled",
+                "requiredNsgRules": "NoAzureDatabricksRules",
+                "parameters": {
+                  "customVirtualNetworkId": {
+                    "value": "[parameters('vnetId')]"
+                  },
+                  "customPublicSubnetName": {
+                    "value": "[parameters('hostSubnetName')]"
+                  },
+                  "customPrivateSubnetName": {
+                    "value": "[parameters('containerSubnetName')]"
+                  },
+                  "enableNoPublicIp": {
+                    "value": true
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "workspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Databricks/workspaces', format('{0}-databricks-ws', parameters('namePrefix')))]"
+            },
+            "workspaceUrl": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Databricks/workspaces', format('{0}-databricks-ws', parameters('namePrefix'))), '2024-05-01').workspaceUrl]"
+            },
+            "managedResourceGroupId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Databricks/workspaces', format('{0}-databricks-ws', parameters('namePrefix'))), '2024-05-01').managedResourceGroupId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'vnet-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "private-endpoint-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[parameters('namePrefix')]"
+          },
+          "workspaceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'databricks-deployment'), '2025-04-01').outputs.workspaceId.value]"
+          },
+          "peSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.peSubnetId.value]"
+          },
+          "vnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.vnetId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "11907480475554919"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Prefix for resource names"
+              }
+            },
+            "workspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Databricks workspace"
+              }
+            },
+            "peSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the private endpoint subnet"
+              }
+            },
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the VNet (for DNS zone link)"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "privatelink.azuredatabricks.net",
+              "location": "global"
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', 'privatelink.azuredatabricks.net', format('{0}-dns-vnet-link', parameters('namePrefix')))]",
+              "location": "global",
+              "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.azuredatabricks.net')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-dbw-ui-pe', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('peSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-dbw-ui-plsc', parameters('namePrefix'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('workspaceId')]",
+                      "groupIds": [
+                        "databricks_ui_api"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('{0}-dbw-ui-pe', parameters('namePrefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "databricks-ui-api",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.azuredatabricks.net')]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.azuredatabricks.net')]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-dbw-ui-pe', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-dbw-auth-pe', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('peSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-dbw-auth-plsc', parameters('namePrefix'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('workspaceId')]",
+                      "groupIds": [
+                        "browser_authentication"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('{0}-dbw-auth-pe', parameters('namePrefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "databricks-browser-auth",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.azuredatabricks.net')]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-dbw-auth-pe', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.azuredatabricks.net')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "uiApiEndpointId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-dbw-ui-pe', parameters('namePrefix')))]"
+            },
+            "browserAuthEndpointId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-dbw-auth-pe', parameters('namePrefix')))]"
+            },
+            "privateDnsZoneId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.azuredatabricks.net')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'databricks-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'vnet-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "diagnostics-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[parameters('namePrefix')]"
+          },
+          "databricksWorkspaceName": {
+            "value": "[format('{0}-databricks-ws', parameters('namePrefix'))]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "14985521917518724931"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Prefix for resource names"
+              }
+            },
+            "databricksWorkspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Databricks workspace to monitor"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[format('{0}-log-analytics', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": 90
+              }
+            },
+            {
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[resourceId('Microsoft.Databricks/workspaces', parameters('databricksWorkspaceName'))]",
+              "name": "[format('{0}-dbw-diagnostics', parameters('namePrefix'))]",
+              "properties": {
+                "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-log-analytics', parameters('namePrefix')))]",
+                "logs": [
+                  {
+                    "category": "dbfs",
+                    "enabled": true
+                  },
+                  {
+                    "category": "clusters",
+                    "enabled": true
+                  },
+                  {
+                    "category": "accounts",
+                    "enabled": true
+                  },
+                  {
+                    "category": "jobs",
+                    "enabled": true
+                  },
+                  {
+                    "category": "notebook",
+                    "enabled": true
+                  },
+                  {
+                    "category": "ssh",
+                    "enabled": true
+                  },
+                  {
+                    "category": "workspace",
+                    "enabled": true
+                  },
+                  {
+                    "category": "secrets",
+                    "enabled": true
+                  },
+                  {
+                    "category": "sqlPermissions",
+                    "enabled": true
+                  },
+                  {
+                    "category": "unityCatalog",
+                    "enabled": true
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-log-analytics', parameters('namePrefix')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-log-analytics', parameters('namePrefix')))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'databricks-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "jumpbox-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[parameters('namePrefix')]"
+          },
+          "mgmtSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.mgmtSubnetId.value]"
+          },
+          "adminUsername": {
+            "value": "[parameters('jumpboxAdminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('jumpboxAdminPassword')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "3840747042657259479"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Prefix for resource names"
+              }
+            },
+            "mgmtSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the management subnet"
+              }
+            },
+            "adminUsername": {
+              "type": "string",
+              "metadata": {
+                "description": "Admin username for the VM"
+              }
+            },
+            "adminPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Admin password for the VM"
+              }
+            },
+            "vmSize": {
+              "type": "string",
+              "defaultValue": "Standard_D4s_v3",
+              "metadata": {
+                "description": "VM size"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkInterfaces",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}-jumpbox-nic', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "name": "ipconfig1",
+                    "properties": {
+                      "subnet": {
+                        "id": "[parameters('mgmtSubnetId')]"
+                      },
+                      "privateIPAllocationMethod": "Dynamic"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines",
+              "apiVersion": "2024-07-01",
+              "name": "[format('{0}-jumpbox', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "hardwareProfile": {
+                  "vmSize": "[parameters('vmSize')]"
+                },
+                "osProfile": {
+                  "computerName": "jumpbox",
+                  "adminUsername": "[parameters('adminUsername')]",
+                  "adminPassword": "[parameters('adminPassword')]"
+                },
+                "storageProfile": {
+                  "imageReference": {
+                    "publisher": "MicrosoftWindowsDesktop",
+                    "offer": "windows-11",
+                    "sku": "win11-24h2-pro",
+                    "version": "latest"
+                  },
+                  "osDisk": {
+                    "createOption": "FromImage",
+                    "managedDisk": {
+                      "storageAccountType": "StandardSSD_LRS"
+                    }
+                  }
+                },
+                "networkProfile": {
+                  "networkInterfaces": [
+                    {
+                      "id": "[resourceId('Microsoft.Network/networkInterfaces', format('{0}-jumpbox-nic', parameters('namePrefix')))]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', format('{0}-jumpbox-nic', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DevTestLab/schedules",
+              "apiVersion": "2018-09-15",
+              "name": "[format('shutdown-computevm-{0}', format('{0}-jumpbox', parameters('namePrefix')))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "status": "Enabled",
+                "taskType": "ComputeVmShutdownTask",
+                "dailyRecurrence": {
+                  "time": "1900"
+                },
+                "timeZoneId": "Eastern Standard Time",
+                "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', format('{0}-jumpbox', parameters('namePrefix')))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', format('{0}-jumpbox', parameters('namePrefix')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vmId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Compute/virtualMachines', format('{0}-jumpbox', parameters('namePrefix')))]"
+            },
+            "privateIp": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/networkInterfaces', format('{0}-jumpbox-nic', parameters('namePrefix'))), '2024-05-01').ipConfigurations[0].properties.privateIPAddress]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'vnet-deployment')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "workspaceUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'databricks-deployment'), '2025-04-01').outputs.workspaceUrl.value]"
+    },
+    "workspaceId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'databricks-deployment'), '2025-04-01').outputs.workspaceId.value]"
+    },
+    "vnetName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.vnetName.value]"
+    },
+    "natGatewayPublicIp": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.natGatewayPublicIp.value]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'diagnostics-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
+    },
+    "jumpboxPrivateIp": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'jumpbox-deployment'), '2025-04-01').outputs.privateIp.value]"
+    }
+  }
+}

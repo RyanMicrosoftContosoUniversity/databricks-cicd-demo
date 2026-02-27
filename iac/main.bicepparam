@@ -1,0 +1,11 @@
+using 'main.bicep'
+
+param location = 'eastus2'
+param namePrefix = 'dbw-private'
+param vnetCidr = '10.0.0.0/16'
+param hostSubnetCidr = '10.0.1.0/24'
+param containerSubnetCidr = '10.0.2.0/24'
+param privateEndpointSubnetCidr = '10.0.3.0/24'
+param gatewaySubnetCidr = '10.0.4.0/24'
+param mgmtSubnetCidr = '10.0.5.0/24'
+param managedResourceGroupName = 'dbw-private-managed-rg'
