@@ -28,6 +28,10 @@
     "cursorpyright.analysis.diagnosticMode": "workspace",
     "cursorpyright.analysis.stubPath": ".vscode",
 
+    // Databricks extension settings
+    "databricks.bundle.target": "dev",
+    "databricks.bundle.authProfile": "adb-279469438045347",
+
     // General Python settings
     "python.defaultInterpreterPath": "./.venv/bin/python",
     "python.testing.unittestEnabled": false,

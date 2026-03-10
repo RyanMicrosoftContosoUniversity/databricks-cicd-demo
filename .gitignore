@@ -1,2 +1,4 @@
 wip/*
 .vscode/*
+kubernetes/*
+vendor-event-ingestion-design/*
