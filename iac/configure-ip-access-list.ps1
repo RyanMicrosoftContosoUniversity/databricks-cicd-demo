@@ -1,20 +1,18 @@
 <#
 .SYNOPSIS
-    Enables or disables Databricks workspace IP access lists to control Power BI connectivity.
+    Adds Power BI service tag CIDRs to a Databricks workspace IP access list.
 
 .DESCRIPTION
-    Uses the Databricks REST API to toggle IP access lists on the workspace.
-    When enabled, only the NAT Gateway IP (for cluster connectivity) and your
-    current public IP are allowed. Use -IncludePowerBI to also allow Power BI
-    Service IPs from the specified Azure region.
-    When disabled, all IPs are allowed again.
+    Uses the Databricks REST API to add Power BI service tag IPs for a
+    specified Azure region, along with the NAT Gateway IP, to the workspace's
+    IP access list. Existing access list entries are preserved — this script
+    only adds new entries.
+    Use -Action Disable to turn off IP access lists entirely.
 
 .EXAMPLE
-    .\configure-ip-access-list.ps1 -Action Enable
+    .\configure-ip-access-list.ps1 -Region WestUS
+    .\configure-ip-access-list.ps1 -Region EastUS2
     .\configure-ip-access-list.ps1 -Action Disable
-    .\configure-ip-access-list.ps1 -Action Enable -IncludePowerBI
-    .\configure-ip-access-list.ps1 -Action Enable -IncludePowerBI -PowerBIRegion "EastUS2"
-    .\configure-ip-access-list.ps1 -Action Enable -AllowedIps @("203.0.113.0/24")
 #>
 
 param(
@@ -25,11 +23,8 @@ param(
     [string]$WorkspaceName = "dbw-databricks-ws",
     [string]$NatPipName = "dbw-nat-pip",
 
-    [switch]$IncludePowerBI,
-    [string]$PowerBIRegion = "WestUS3",
-    [string]$AzureLocation = "eastus2",
-
-    [string[]]$AllowedIps = @()
+    [ValidateSet("WestUS", "WestUS2", "WestUS3", "EastUS", "EastUS2", "CentralUS", "NorthCentralUS", "SouthCentralUS", "WestCentralUS")]
+    [string]$Region = "WestUS3"
 )
 
 $ErrorActionPreference = "Stop"
@@ -97,61 +92,39 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "  NAT Gateway IP: $natIp" -ForegroundColor Gray
 
-# Detect current public IP (so the caller doesn't lock themselves out)
-try {
-    $myIp = (Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 10).Trim()
-    Write-Host "  Your public IP:  $myIp" -ForegroundColor Gray
-} catch {
-    Write-Warning "Could not detect your public IP. You may lock yourself out!"
-    $myIp = $null
+# Fetch Power BI service tag IPs
+Write-Host "  Fetching PowerBI.$Region service tag IPs..." -ForegroundColor Yellow
+$azureLocation = $Region.ToLower()
+$tagsJson = az network list-service-tags --location $azureLocation -o json 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to fetch Azure service tags.`n$tagsJson"
+    exit 1
 }
-
-# Fetch Power BI service tag IPs if requested
-$pbiIps = @()
-if ($IncludePowerBI) {
-    Write-Host "  Fetching PowerBI.$PowerBIRegion service tag IPs..." -ForegroundColor Yellow
-    $tagsJson = az network list-service-tags --location $AzureLocation -o json 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to fetch Azure service tags.`n$tagsJson"
-        exit 1
-    }
-    $allTags = $tagsJson | ConvertFrom-Json
-    $pbiTag = $allTags.values | Where-Object { $_.name -eq "PowerBI.$PowerBIRegion" }
-    if (-not $pbiTag) {
-        Write-Error "Service tag 'PowerBI.$PowerBIRegion' not found. Run 'az network list-service-tags --location $AzureLocation' to see available regions."
-        exit 1
-    }
-    # Filter to IPv4 only — Databricks IP access lists don't support IPv6
-    $pbiIps = $pbiTag.properties.addressPrefixes | Where-Object { $_ -notmatch ':' }
-    Write-Host "  Found $($pbiIps.Count) IPv4 ranges for PowerBI.$PowerBIRegion" -ForegroundColor Green
+$allTags = $tagsJson | ConvertFrom-Json
+$pbiTag = $allTags.values | Where-Object { $_.name -eq "PowerBI.$Region" }
+if (-not $pbiTag) {
+    Write-Error "Service tag 'PowerBI.$Region' not found. Run 'az network list-service-tags --location $azureLocation' to see available regions."
+    exit 1
 }
+# Filter to IPv4 only — Databricks IP access lists don't support IPv6
+$pbiIps = $pbiTag.properties.addressPrefixes | Where-Object { $_ -notmatch ':' }
+Write-Host "  Found $($pbiIps.Count) IPv4 ranges for PowerBI.$Region" -ForegroundColor Green
 
 # Build the IP list
 $ipList = [System.Collections.Generic.List[string]]::new()
 $ipList.Add("$natIp/32")
-if ($myIp) { $ipList.Add("$myIp/32") }
-foreach ($ip in $AllowedIps) { $ipList.Add($ip) }
 foreach ($ip in $pbiIps) { $ipList.Add($ip) }
 
 $uniqueIps = $ipList | Sort-Object -Unique
 Write-Host "  Allow list ($($uniqueIps.Count) entries):" -ForegroundColor White
 foreach ($ip in $uniqueIps) { Write-Host "    $ip" -ForegroundColor Gray }
 
-# Delete any existing IP access lists to start clean
+# Add the allow list (preserves existing lists)
 Write-Host "`n[4/4] Configuring IP access lists..." -ForegroundColor Yellow
-$existing = Invoke-RestMethod -Uri "$workspaceUrl/api/2.0/ip-access-lists" `
-    -Method Get -Headers $headers
-if ($existing.ip_access_lists) {
-    foreach ($list in $existing.ip_access_lists) {
-        Write-Host "  Removing existing list: $($list.label) ($($list.list_id))" -ForegroundColor Gray
-        Invoke-RestMethod -Uri "$workspaceUrl/api/2.0/ip-access-lists/$($list.list_id)" `
-            -Method Delete -Headers $headers | Out-Null
-    }
-}
 
 # Create the allow list
 $createBody = @{
-    label        = "Approved Networks"
+    label        = "PowerBI.$Region"
     list_type    = "ALLOW"
     ip_addresses = @($uniqueIps)
 } | ConvertTo-Json -Depth 3
@@ -168,16 +141,8 @@ Write-Host "  IP access lists enabled." -ForegroundColor Green
 
 Write-Host "`n========================================" -ForegroundColor Cyan
 Write-Host " Done! Only approved IPs can connect."    -ForegroundColor Green
-if ($IncludePowerBI) {
-    Write-Host " Power BI Service (PowerBI.$PowerBIRegion) is ALLOWED." -ForegroundColor Green
-} else {
-    Write-Host " Power BI Service is now BLOCKED."         -ForegroundColor Red
-}
+Write-Host " Power BI Service (PowerBI.$Region) is ALLOWED." -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-if (-not $IncludePowerBI) {
-    Write-Host "To allow Power BI:" -ForegroundColor White
-    Write-Host "  .\configure-ip-access-list.ps1 -Action Enable -IncludePowerBI" -ForegroundColor Gray
-}
-Write-Host "To allow all IPs:" -ForegroundColor White
+Write-Host "To disable IP access lists:" -ForegroundColor White
 Write-Host "  .\configure-ip-access-list.ps1 -Action Disable" -ForegroundColor Gray

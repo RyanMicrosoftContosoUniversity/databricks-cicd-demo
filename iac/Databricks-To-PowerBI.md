@@ -97,6 +97,41 @@ Output:
 Note that this isn't the best long term approach because Microsoft adds servers and therefore IPs continuously.  Unfortunately, service tags cannot be used on ip access lists in Databricks.
 Therefore, from a security and connectivity the approach, the below pattern is recommended
 
+## Example Implementation
+### Login to Databricks Host
+```
+databricks auth login --host https://adb-7405616981398218.18.azuredatabricks.net/
+```
+### Set Auth Type to Azure CLI to ensure correct tokens used (ip-access-list list will likely show none otherwise).  Script also requries this
+```
+$env:DATABRICKS_AUTH_TYPE = "azure-cli"
+```
+### set env var for databricks host for script
+```
+$env:DATABRICKS_HOST = "https://adb-7405616981398218.18.azuredatabricks.net"
+```
+### Run powershell script with appropriate Region argument
+```
+.\iac\configure-ip-access-list.ps1 -Region WestUS
+```
+### Below images to show what results should look like
+![Enable IP Access Lists Image 1](../docs/databricks-powerbi-architecture-images/ip-access-lists-enable-1.png)
+
+
+![Enable IP Access Lists Image 2](../docs/databricks-powerbi-architecture-images/ip-access-lists-enable-2.png)
+
+
+
+### Running ip-access-lists list should show new region added with region label
+```
+databricks ip-access-lists list --output json
+```
+![Enable IP Access Lists Image 3](../docs/databricks-powerbi-architecture-images/ip-access-lists-enable-3.png)
+
+
+
+
+
 ## The most secure architecture for Power BI -> Databricks Connectivity
 
 #### Layer 1:  Network
