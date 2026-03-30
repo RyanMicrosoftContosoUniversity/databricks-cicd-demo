@@ -5,7 +5,7 @@
 .DESCRIPTION
     Uses the Databricks REST API to add Power BI service tag IPs for a
     specified Azure region, along with the NAT Gateway IP, to the workspace's
-    IP access list. Existing access list entries are preserved — this script
+    IP access list. Existing access list entries are preserved -- this script
     only adds new entries.
     Use -Action Disable to turn off IP access lists entirely.
 
@@ -30,10 +30,10 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " Databricks IP Access List — $Action"    -ForegroundColor Cyan
+Write-Host " Databricks IP Access List - $Action"     -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
-# ─── Get Databricks AAD token via Azure CLI ──────────────────────────────────
+# --- Get Databricks AAD token via Azure CLI -----------------------------------
 
 Write-Host "`n[1/4] Acquiring Databricks access token..." -ForegroundColor Yellow
 $tokenResponse = az account get-access-token --resource "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d" --output json 2>&1
@@ -44,7 +44,7 @@ if ($LASTEXITCODE -ne 0) {
 $token = ($tokenResponse | ConvertFrom-Json).accessToken
 Write-Host "  Token acquired." -ForegroundColor Green
 
-# ─── Get workspace URL ───────────────────────────────────────────────────────
+# --- Get workspace URL --------------------------------------------------------
 
 Write-Host "`n[2/4] Resolving workspace URL..." -ForegroundColor Yellow
 $wsJson = az databricks workspace show `
@@ -63,14 +63,14 @@ $headers = @{
     "Content-Type"  = "application/json"
 }
 
-# ─── Disable path — just flip the feature flag ──────────────────────────────
+# --- Disable path -- just flip the feature flag ------------------------------
 
 if ($Action -eq "Disable") {
     Write-Host "`n[3/4] Disabling IP access lists..." -ForegroundColor Yellow
     $body = '{"enableIpAccessLists": "false"}'
     Invoke-RestMethod -Uri "$workspaceUrl/api/2.0/workspace-conf" `
         -Method Patch -Headers $headers -Body $body | Out-Null
-    Write-Host "  IP access lists disabled — all IPs can now connect." -ForegroundColor Green
+    Write-Host "  IP access lists disabled -- all IPs can now connect." -ForegroundColor Green
 
     Write-Host "`n========================================" -ForegroundColor Cyan
     Write-Host " Done! Power BI can now reach the workspace." -ForegroundColor Green
@@ -78,9 +78,9 @@ if ($Action -eq "Disable") {
     exit 0
 }
 
-# ─── Enable path — resolve IPs, create allow list, enable feature ────────────
+# --- Enable path -- resolve IPs, create allow list, enable feature -----------
 
-# Resolve NAT Gateway public IP (critical — clusters need this)
+# Resolve NAT Gateway public IP (critical -- clusters need this)
 Write-Host "`n[3/4] Resolving IPs for allow list..." -ForegroundColor Yellow
 $natIp = az network public-ip show `
     --resource-group $ResourceGroupName `
@@ -106,7 +106,7 @@ if (-not $pbiTag) {
     Write-Error "Service tag 'PowerBI.$Region' not found. Run 'az network list-service-tags --location $azureLocation' to see available regions."
     exit 1
 }
-# Filter to IPv4 only — Databricks IP access lists don't support IPv6
+# Filter to IPv4 only -- Databricks IP access lists don't support IPv6
 $pbiIps = $pbiTag.properties.addressPrefixes | Where-Object { $_ -notmatch ':' }
 Write-Host "  Found $($pbiIps.Count) IPv4 ranges for PowerBI.$Region" -ForegroundColor Green
 
